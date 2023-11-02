@@ -2,7 +2,10 @@ package telran.test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.IntStream;
 
 import telran.test.annotation.*;
 
@@ -24,14 +27,8 @@ public class TestRunner implements Runnable {
 
 	private void runTestMethods(Method[] methods, Method[] beforeEachMethods) {
 		for (Method m : methods) {
-			if (m.isAnnotationPresent(Test.class)) {
-				m.setAccessible(true);
-				runMethods(beforeEachMethods);
-				try {
-					m.invoke(testObj);
-				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-					throw new RuntimeException(e);
-				}
+			if (m.isAnnotationPresent(Test.class)) {			
+				runOneTestMethod(m, beforeEachMethods);
 			}
 		}
 	}
@@ -50,5 +47,21 @@ public class TestRunner implements Runnable {
 	private Method[] getBaforeEachMethods(Method[] methods) {
 
 		return Arrays.stream(methods).filter(m -> m.isAnnotationPresent(BeforeEach.class)).toArray(Method[]::new);
+	}
+	
+	private void runOneTestMethod(Method method, Method[] beforeEachMethods) {
+		method.setAccessible(true);				
+		runMethods(beforeEachMethods);
+		Test testAnnotation = method.getAnnotation(Test.class);
+		int nRuns = testAnnotation.nRuns();
+		Instant start = Instant.now();
+		IntStream.range(0, nRuns).forEach(i -> {
+			try {
+				method.invoke(testObj);
+			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+				throw new RuntimeException(e);
+			}
+		});
+		System.out.printf("Test: %s; running time: %d\n", method.getName(), ChronoUnit.MILLIS.between(start, Instant.now()));
 	}
 }
